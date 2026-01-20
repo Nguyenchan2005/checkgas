@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Giám Sát Gas - Simon House</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+    <style>
+        body { font-family: 'Arial', sans-serif; background-color: #f4f4f9; text-align: center; padding: 50px; }
+        .card { background: white; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 400px; margin: auto; padding: 30px; }
+        h2 { color: #333; }
+        #gas-value { font-size: 80px; font-weight: bold; color: #2ecc71; margin: 20px 0; }
+        #status { font-size: 24px; padding: 10px; border-radius: 5px; color: white; background-color: #2ecc71; display: inline-block; }
+        .footer { margin-top: 30px; font-size: 12px; color: #888; }
+        #debug-error { color: red; font-size: 14px; margin-top: 10px; display: none;}
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>🔥 GIÁM SÁT KHÍ GAS</h2>
+        <div id="gas-status-icon" style="font-size: 50px; margin-top: 20px;">🛡️</div>
+        
+        <div id="gas-value">---</div>
+        
+        <div id="status">Đang kết nối...</div>
+        <div id="debug-error"></div>
+    </div>
+
+    <div class="footer">Server: broker.hivemq.com | Port: 8884 (SSL) | Topic: simon_house</div>
+
+    <script>
+        // CẤU HÌNH SERVER MQTT (Đã đổi sang cổng Bảo mật SSL)
+        var mqtt_server = "broker.hivemq.com";
+        var mqtt_port = 8884; // Cổng Secure WebSockets (WSS)
+        var topic_value = "simon_house/gas/value";
+        
+        // Tạo Client ID ngẫu nhiên
+        var client = new Paho.MQTT.Client(mqtt_server, mqtt_port, "web_" + parseInt(Math.random() * 100, 10));
+
+        // Cài đặt các hàm xử lý
+        client.onConnectionLost = onConnectionLost;
+        client.onMessageArrived = onMessageArrived;
+
+        // Bắt đầu kết nối (QUAN TRỌNG: useSSL: true)
+        var options = {
+            useSSL: true,
+            onSuccess: onConnect,
+            onFailure: onFail
+        };
+        
+        console.log("Đang kết nối tới " + mqtt_server + ":" + mqtt_port);
+        client.connect(options);
+
+        // --- CÁC HÀM XỬ LÝ ---
+
+        function onConnect() {
+            console.log("Đã kết nối Server thành công!");
+            document.getElementById("status").innerText = "Đã kết nối";
+            document.getElementById("debug-error").style.display = "none";
+            // Đăng ký nhận tin
+            client.subscribe("simon_house/#");
+        }
+
+        function onFail(responseObject) {
+            console.log("Kết nối THẤT BẠI: " + responseObject.errorMessage);
+            document.getElementById("status").innerText = "Lỗi kết nối!";
+            document.getElementById("status").style.backgroundColor = "red";
+            document.getElementById("debug-error").style.display = "block";
+            document.getElementById("debug-error").innerText = "Lỗi: " + responseObject.errorMessage + " (Hãy nhấn F12 để xem chi tiết)";
+        }
+
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log("Mất kết nối: " + responseObject.errorMessage);
+                document.getElementById("status").innerText = "Mất kết nối...";
+                document.getElementById("status").style.backgroundColor = "#95a5a6";
+            }
+        }
+
+        function onMessageArrived(message) {
+            console.log("Nhận tin: " + message.payloadString);
+            
+            // Xử lý hiển thị số
+            if (message.destinationName == topic_value) {
+                var value = parseInt(message.payloadString);
+                document.getElementById("gas-value").innerText = value;
+
+                if (value > 450) {
+                    document.getElementById("gas-value").style.color = "#e74c3c"; // Đỏ
+                    document.getElementById("status").innerText = "NGUY HIỂM! RÒ RỈ GAS";
+                    document.getElementById("status").style.backgroundColor = "#e74c3c";
+                    document.getElementById("gas-status-icon").innerText = "⚠️";
+                } else {
+                    document.getElementById("gas-value").style.color = "#2ecc71"; // Xanh
+                    document.getElementById("status").innerText = "An Toàn / Bình Thường";
+                    document.getElementById("status").style.backgroundColor = "#2ecc71";
+                    document.getElementById("gas-status-icon").innerText = "🛡️";
+                }
+            }
+        }
+    </script>
+</body>
+</html>
