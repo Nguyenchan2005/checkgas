@@ -27,13 +27,12 @@
         <div id="debug-error"></div>
     </div>
 
-    <div class="footer">Server: broker.hivemq.com | Port: 8884 (SSL) | Topic: simon_house</div>
+    <div class="footer">Server: test.mosquitto.org | Port: 8080 (WS) | Topic: simon_house</div>
 
     <script>
-        // CẤU HÌNH SERVER MQTT (Đã đổi sang cổng Bảo mật SSL)
+        // CẤU HÌNH SERVER MQTT
         var mqtt_server = "test.mosquitto.org";
-        var mqtt_port = 8080; // Cổng WebSocket (Không phải 1883)
-        var use_ssl_setting = false; // Cổng 8080 không dùng SSL // Cổng Secure WebSockets (WSS)
+        var mqtt_port = 8080; // Cổng WebSocket thường (Không SSL)
         var topic_value = "simon_house/gas/value";
         
         // Tạo Client ID ngẫu nhiên
@@ -43,9 +42,9 @@
         client.onConnectionLost = onConnectionLost;
         client.onMessageArrived = onMessageArrived;
 
-        // Bắt đầu kết nối (QUAN TRỌNG: useSSL: true)
+        // Bắt đầu kết nối
         var options = {
-            useSSL: true,
+            useSSL: false, // <--- ĐÃ SỬA: Phải là false nếu dùng cổng 8080
             onSuccess: onConnect,
             onFailure: onFail
         };
@@ -68,7 +67,7 @@
             document.getElementById("status").innerText = "Lỗi kết nối!";
             document.getElementById("status").style.backgroundColor = "red";
             document.getElementById("debug-error").style.display = "block";
-            document.getElementById("debug-error").innerText = "Lỗi: " + responseObject.errorMessage + " (Hãy nhấn F12 để xem chi tiết)";
+            document.getElementById("debug-error").innerText = "Lỗi: " + responseObject.errorMessage;
         }
 
         function onConnectionLost(responseObject) {
