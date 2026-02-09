@@ -6,102 +6,140 @@
     <title>Hệ Thống Giám Sát Gas - Simon House</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
     <style>
-        body { font-family: 'Arial', sans-serif; background-color: #f4f4f9; text-align: center; padding: 50px; }
-        .card { background: white; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 400px; margin: auto; padding: 30px; }
-        h2 { color: #333; }
-        #gas-value { font-size: 80px; font-weight: bold; color: #2ecc71; margin: 20px 0; }
-        #status { font-size: 24px; padding: 10px; border-radius: 5px; color: white; background-color: #2ecc71; display: inline-block; }
+        body { font-family: 'Arial', sans-serif; background-color: #f4f4f9; text-align: center; padding: 20px; }
+        .card { background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 400px; margin: auto; padding: 30px; }
+        h2 { color: #333; margin-bottom: 5px; }
+        .sub-title { font-size: 14px; color: #7f8c8d; margin-bottom: 20px; }
+        
+        #gas-value { font-size: 80px; font-weight: bold; color: #2ecc71; margin: 10px 0; transition: color 0.3s; }
+        #unit { font-size: 20px; color: #95a5a6; }
+        
+        #status-box { padding: 15px; border-radius: 8px; color: white; font-weight: bold; font-size: 18px; margin-top: 15px; transition: background-color 0.3s; }
+        
         .footer { margin-top: 30px; font-size: 12px; color: #888; }
         #debug-error { color: red; font-size: 14px; margin-top: 10px; display: none;}
+        
+        /* Hiệu ứng nhấp nháy khi báo động */
+        @keyframes blinker { 50% { opacity: 0.5; } }
+        .alarm-active { animation: blinker 0.8s linear infinite; background-color: #e74c3c !important; }
+        .safe-active { background-color: #2ecc71 !important; }
+        .loading-active { background-color: #f39c12 !important; }
     </style>
 </head>
 <body>
 
     <div class="card">
         <h2>🔥 GIÁM SÁT KHÍ GAS</h2>
-        <div id="gas-status-icon" style="font-size: 50px; margin-top: 20px;">🛡️</div>
+        <div class="sub-title">Cảm biến MQ-5 (Simon House)</div>
+
+        <div id="gas-status-icon" style="font-size: 60px; margin-top: 10px;">🛡️</div>
         
-        <div id="gas-value">---</div>
+        <div>
+            <span id="gas-value">---</span>
+            <span id="unit">ppm</span>
+        </div>
         
-        <div id="status" style="background-color: orange;">Đang kết nối...</div>
+        <div id="status-box" class="loading-active">Đang kết nối Server...</div>
+        
         <div id="debug-error"></div>
     </div>
 
-    <div class="footer">Server: test.mosquitto.org | Port: 8081 (WSS Secure) | Topic: simon_house</div>
+    <div class="footer">Server: test.mosquitto.org | Port: 8080 (WebSocket)</div>
 
     <script>
-        // --- CẤU HÌNH SERVER (Dùng cổng 8081 Bảo mật) ---
+        // --- CẤU HÌNH SERVER (Đã đổi sang cổng 8080 cho ổn định) ---
         var mqtt_server = "test.mosquitto.org";
-        var mqtt_port = 8081; // <--- QUAN TRỌNG: Cổng 8081
+        var mqtt_port = 8080; // <--- SỬA THÀNH 8080 (Không SSL)
+        
         var topic_value = "simon_house/gas/value";
+        var topic_alert = "simon_house/gas/alert";
         
         // Tạo Client ID ngẫu nhiên
-        var client = new Paho.MQTT.Client(mqtt_server, mqtt_port, "web_" + parseInt(Math.random() * 10000, 10));
+        var client = new Paho.MQTT.Client(mqtt_server, mqtt_port, "web_client_" + parseInt(Math.random() * 10000, 10));
 
-        // Cài đặt các hàm xử lý
         client.onConnectionLost = onConnectionLost;
         client.onMessageArrived = onMessageArrived;
 
         // Bắt đầu kết nối
         var options = {
-            useSSL: true, // <--- QUAN TRỌNG: Phải bật SSL với cổng 8081
+            useSSL: false, // <--- SỬA THÀNH FALSE (Tắt SSL để tránh lỗi Time out)
             timeout: 3,
             onSuccess: onConnect,
             onFailure: onFail
         };
         
-        console.log("Đang kết nối tới " + mqtt_server + ":" + mqtt_port + " (SSL)");
+        console.log("Đang kết nối tới " + mqtt_server + ":" + mqtt_port);
         client.connect(options);
 
         // --- CÁC HÀM XỬ LÝ ---
 
         function onConnect() {
             console.log("Đã kết nối Server thành công!");
-            document.getElementById("status").innerText = "Đã kết nối";
-            document.getElementById("status").style.backgroundColor = "#2ecc71"; // Xanh
+            document.getElementById("status-box").innerText = "Đã kết nối! Chờ dữ liệu...";
+            document.getElementById("status-box").className = "loading-active";
             document.getElementById("debug-error").style.display = "none";
-            // Đăng ký nhận tin
-            client.subscribe("simon_house/#");
+            
+            // Đăng ký nhận tin từ cả 2 topic
+            client.subscribe("simon_house/gas/#");
         }
 
         function onFail(responseObject) {
             console.log("Kết nối THẤT BẠI: " + responseObject.errorMessage);
-            document.getElementById("status").innerText = "Lỗi kết nối!";
-            document.getElementById("status").style.backgroundColor = "red";
+            document.getElementById("status-box").innerText = "Lỗi kết nối Server!";
+            document.getElementById("status-box").style.backgroundColor = "#7f8c8d";
             document.getElementById("debug-error").style.display = "block";
-            document.getElementById("debug-error").innerText = "Lỗi: " + responseObject.errorMessage;
+            document.getElementById("debug-error").innerText = "Chi tiết: " + responseObject.errorMessage;
         }
 
         function onConnectionLost(responseObject) {
             if (responseObject.errorCode !== 0) {
                 console.log("Mất kết nối: " + responseObject.errorMessage);
-                document.getElementById("status").innerText = "Mất kết nối...";
-                document.getElementById("status").style.backgroundColor = "#95a5a6"; // Xám
+                document.getElementById("status-box").innerText = "Mất kết nối Internet...";
+                document.getElementById("status-box").style.backgroundColor = "#95a5a6";
             }
         }
 
         function onMessageArrived(message) {
-            console.log("Nhận tin: " + message.payloadString);
+            console.log("Topic: " + message.destinationName + " | Mess: " + message.payloadString);
             
-            // Xử lý hiển thị số
+            // 1. Xử lý hiển thị SỐ (Value)
             if (message.destinationName == topic_value) {
-                var value = parseInt(message.payloadString);
-                // Cập nhật số liệu
-                document.getElementById("gas-value").innerText = value;
+                var val = message.payloadString;
+                document.getElementById("gas-value").innerText = val;
+            }
 
-                // Logic cảnh báo
-                if (value > 450) {
-                    document.getElementById("gas-value").style.color = "#e74c3c"; // Đỏ
-                    document.getElementById("status").innerText = "NGUY HIỂM! RÒ RỈ GAS";
-                    document.getElementById("status").style.backgroundColor = "#e74c3c";
-                    document.getElementById("gas-status-icon").innerText = "⚠️";
-                    // Rung nhẹ điện thoại (nếu hỗ trợ)
+            // 2. Xử lý hiển thị TRẠNG THÁI (Alert)
+            // Code ESP8266 gửi chuỗi text, ta hiển thị trực tiếp chuỗi đó
+            if (message.destinationName == topic_alert) {
+                var msgContent = message.payloadString;
+                var statusBox = document.getElementById("status-box");
+                var valueText = document.getElementById("gas-value");
+                var icon = document.getElementById("gas-status-icon");
+
+                // Cập nhật nội dung chữ
+                statusBox.innerText = msgContent;
+
+                // Kiểm tra từ khóa để đổi màu (Đồng bộ với code C++)
+                if (msgContent.includes("CANH BAO") || msgContent.includes("NGUY HIEM") || msgContent.includes("RO RI")) {
+                    // --- TRẠNG THÁI NGUY HIỂM ---
+                    statusBox.className = "alarm-active"; // Màu đỏ + Nhấp nháy
+                    valueText.style.color = "#e74c3c";
+                    icon.innerText = "⚠️";
+                    
+                    // Rung điện thoại
                     if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
+
+                } else if (msgContent.includes("An toan")) {
+                    // --- TRẠNG THÁI AN TOÀN ---
+                    statusBox.className = "safe-active"; // Màu xanh
+                    valueText.style.color = "#2ecc71";
+                    icon.innerText = "🛡️";
+
                 } else {
-                    document.getElementById("gas-value").style.color = "#2ecc71"; // Xanh
-                    document.getElementById("status").innerText = "An Toàn / Bình Thường";
-                    document.getElementById("status").style.backgroundColor = "#2ecc71";
-                    document.getElementById("gas-status-icon").innerText = "🛡️";
+                    // --- TRẠNG THÁI KHỞI ĐỘNG / KHÁC ---
+                    statusBox.className = "loading-active"; // Màu cam
+                    valueText.style.color = "#f39c12";
+                    icon.innerText = "⏳";
                 }
             }
         }
