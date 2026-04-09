@@ -1,5 +1,5 @@
 name: gas_monitor
-description: "A new Flutter project."
+description: "Flutter gas monitoring app using MQTT with local alert notifications."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -30,9 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  mqtt_client: ^10.0.1
-  flutter_local_notifications: ^17.2.2  # Hoặc ^18.0.1 nếu muốn mới nhất
-  permission_handler: ^11.3.0
+  mqtt_client: ^10.11.9
+  flutter_local_notifications: ^17.2.4
+  permission_handler: ^11.4.0
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
